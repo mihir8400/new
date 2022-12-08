@@ -1,5 +1,116 @@
 <?php
 
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class productcontroller extends Controller
+{
+   function insert(Request $req){
+    $file=request()->photo;
+    $fnm=$req->photo->getClientOriginalName();
+    $req->photo->move(public_path("upload"), $fnm);
+    if($req->operation=='Insert'){
+
+
+        db::table('product')->insert([
+            "name"=> $req->name,
+            "price"=> $req->price,
+            "photo"=> $fnm
+        ]);
+        return redirect('/');
+    }
+    else if($req->operation=='update'){
+
+
+        db::table('product')->where('pid',$req->pid)->update([
+            "name"=> $req->name,
+            "price"=> $req->price,
+            "photo"=> $fnm
+        ]);
+        return redirect('/');
+    }
+   }
+
+   function viewdata(){
+   $data=db::table('product')->get();
+    return view('home',['Data'=>$data]);
+   }
+
+   function editordel(Request $req,$pid){
+    if($req->opt=='delete'){
+        db::table('product')->where('pid',$pid)->delete();
+       return redirect('/');
+    }
+ else if($req->opt=='edit'){
+    $data=db::table('product')->get();
+    $record=db::table('product')->where('pid',$pid)->get();
+    return view('home',['Data'=>$data,'Record'=> $record]);
+    }
+   }
+}
+==================================
+
+Route::get('/', function () {
+    return view('home');
+});
+
+Route::view('/','home');
+Route::post('insert',[productcontroller::class,'insert']);
+
+Route::get('/',[productcontroller::class,'viewdata']);
+Route::get('editordel{pid}',[productcontroller::class,'editordel']);
+======================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUERY BUILDER</title>
+</head>
+<body>
+    <form method="post" action="insert" enctype="multipart/form-data">
+        @csrf
+
+
+        <input type="hidden" name="pid" @isset($Record) value={{$Record[0]->pid}} @endisset><br>
+        <input type="text" name="name" @isset($Record) value={{$Record[0]->name}} @endisset placeholder="product name"><br>
+        <input type="number" name="price" @isset($Record) value={{$Record[0]->price}} @endisset placeholder="product price"><br>
+        <input type="file" name="photo" @isset($Record) value={{$Record[0]->photo}} @endisset ><br>
+        <input type="submit" name="operation" value="Insert"><br>
+        <input type="submit" name="operation" value="update"><br>
+
+    </form>
+   <table>
+   <tr>
+    <td>ID</td>
+    <td>Name</td>
+    <td>price</td>
+    <td>photo</td>
+    <td>edit</td>
+    <td>delete</td>
+   </tr>
+@foreach($Data as $d)
+<form method="get" action={{URL::to("editordel$d->pid")}}>
+   <tr>
+    <td>{{$d->pid}}</td>
+    <td>{{$d->name}}</td>
+    <td>{{$d->price}}</td>
+    <td><img src="{{asset('/upload/'.$d->photo)}}" height="50px" width="50px"></td>
+    <td> <input type="submit" name="opt" value="edit"></td>
+    <td> <input type="submit" name="opt" value="delete"></td>
+   </tr>
+</form>
+@endforeach
+   </table>
+</body>
+</html>
+
+====================================================================
+<?php
+
 use App\Http\Controllers\mycontroller;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Route;
