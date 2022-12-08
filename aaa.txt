@@ -1,0 +1,239 @@
+<?php
+
+use App\Http\Controllers\mycontroller;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Facades\Route;
+
+
+Route::view('welcome','welcome');
+
+Route::view('login','login');
+
+Route::post('logindata',[mycontroller::class,'logindata']);
+
+
+Route::view('reg','register');
+Route::post('regdata',[mycontroller::class,'regdata']);
+
+Route::get('welcome',[mycontroller::class,'disp']);
+
+Route::post('search',[mycontroller::class,'disp']);
+
+Route::post('updata',[mycontroller::class,'updata']);
+
+Route::get('update/{uid}',[mycontroller::class,'upd']);
+
+
+Route::view('update','update');
+Route::post('updatedata',[mycontroller::class,'updatedata']);
+
+Route::get('delete/{uid}',[mycontroller::class,'delete']);
+
+
+
+Route::post('logout',[mycontroller::class,'logout']);
+
+=====================================
+<?php
+
+namespace App\Http\Controllers;
+use Illuminate\Support\Facades\DB;
+
+
+use Illuminate\Http\Request;
+
+class mycontroller extends Controller
+{
+    function logindata(Request $req){
+        $pass=$req->txtpass;
+        $email=$req->txtemail;
+        $log=DB::table('tbl_user')->select('uid')->where('email',$email)->where('password',$pass)->first();
+        // print_r($log);
+        if(isset($log)){
+            $req->session()->put('user',$log->uid);
+            return redirect('welcome');
+        }
+        else{
+            return view('login');
+        }
+        
+    }
+
+    function regdata(Request $req){
+        if($req->submit == 'reg'){
+            $uname=$req->txtname;
+            $pass=$req->txtpass;
+            $cpass=$req->txtcpass;
+            $email=$req->txtemail;
+    
+            $req->validate([
+                'txtname'=>"required",
+                'txtpass'=>"required",
+                'txtcpass'=>"required|same:txtpass",
+                'txtemail'=>"required|email",
+                'photo'=>"required"
+            ],["txtname.required"=>"Field Is Empty",
+            "txtcpass.same"=>"Password Not Match",
+            "txtemail.email"=>"Invalid Email",
+            "photo.required"=>"Please Select Photo"]);
+            
+            $filename=$req->file('photo')->getClientOriginalName();
+            $req->file('photo')->move('uploads',$filename);
+    
+           
+    
+            DB::table('tbl_user')->insert([
+                'uname'=>$uname,
+                'password'=>$pass,
+                'email'=>$email,
+                'uphoto'=>$filename
+            ]);
+            return redirect('reg');
+
+        }
+    }
+
+    function updata(Request $req){
+        $data=DB::table('tbl_user')->where('uid',$req->hid)->first();
+
+        return view('welcome',['uData'=>$data]);
+    }
+
+    function disp(Request $req){
+        if($req ->operation=='search'){
+            $data=DB::table('tbl_user')->where('uname','like','%'.$req->txtsearch.'%')->get();
+        }
+        else{
+            $data=DB::table('tbl_user')->get();
+        }
+        
+        return view('welcome',['Data'=>$data]);
+    }
+
+    function upd(Request $req){
+//        print_r($req->uid);
+        $data=DB::table('tbl_user')->where('uid',$req->uid)->first();
+
+        return view('update',['Data'=>$data]);
+    }
+
+    function updatedata(Request $req){
+        $uid=$req->hid;
+        $uname=$req->txtname;
+        $email=$req->txtemail;
+    
+            $req->validate([
+                'txtname'=>"required",
+                'txtemail'=>"required|email"
+            ],["txtname.required"=>"Field Is Empty",
+            "txtemail.email"=>"Invalid Email"]);
+
+        DB::table('tbl_user')->where('uid',$uid)->update([
+            'uname'=>$uname,
+            'email'=>$email
+        ]);
+        echo "<script>alert('Update Thyu');window.location.href='welcome';</script>";
+        
+    }
+
+    function delete(Request $req){
+        $uid=$req->uid;
+        DB::table('tbl_user')->where('uid',$uid)->delete();
+        return redirect('welcome');
+    }
+
+    function logout(REQUEST $req){
+        if($req->session()->has('user')){
+            $req->session()->forget('user');
+        }
+        return view('login');
+    }
+}
+================================================
+
+@include('navbar')
+
+<form class="d-flex col-5" method="POST" action="search">
+    @csrf
+    <input class="form-control me-2" name="txtsearch" type="search" placeholder="Search" >
+    <button class="btn btn-outline-success" name="operation" value="search" type="submit">Search</button>
+</form>
+
+@isset($Data)
+<table class="table w-50">
+    <thead>
+      <tr>
+        <th scope="col">ID</th>
+        <th scope="col">Name</th>
+        <th scope="col">Email</th>
+        <th scope="col">Image</th>
+        <th scope="col">Action</th>
+
+      </tr>
+    </thead>
+    <tbody>
+        @foreach($Data as $d)
+        <tr>
+            <th scope="row">{{$d->uid}}</th>
+            <td>{{$d->uname}}</td>
+            <td>{{$d->email}}</td>
+            <td><img src={{asset('uploads/'.$d->uphoto)}} height="100" width="100"></td>
+            <td>
+               
+                <a href="update/{{$d->uid}}" class="btn btn-secondary">Update</a>
+                <a href={{URL::To ('delete/'.$d->uid)}} class="btn btn-success">Delete</a>
+            </td>
+        </tr>
+        @endforeach
+    </tbody>
+  </table>
+
+  @endisset
+  ===============================
+update
+
+@isset($Data)
+
+<form class="container mt-5 col-5" method="POST" enctype="multipart/form-data" action={{URL::To('updatedata')}}>
+@csrf
+<div class="mb-3">
+    <input type="hidden" name="hid" value={{$Data->uid}}>
+  <label for="exampleInputEmail1" class="form-label" >Name</label>
+  <input type="text" class="form-control" name="txtname" value={{$Data->uname}}>
+</div>
+<div class="mb-3">
+  <label for="exampleInputEmail1" class="form-label" >Email</label>
+  <input type="email" class="form-control" name="txtemail" value={{$Data->email}}>
+</div>
+
+<button type="submit" name="submit" value="upd" class="btn btn-primary">Update</button>
+</form>
+
+<div>
+@if ($errors -> any())
+    @foreach($errors->all() as $e)
+        <span>{{$e}}</span>
+    @endforeach
+@endif
+</div>
+@endisset
+  ==================================================
+login 
+
+@if(session()->has('user'))
+    <script>
+        window.location.href='welcome';
+    </script>
+@endif
+=============================
+Nav 
+@if(!session()->has('user'))
+    <script>
+        window.location.href='login';
+    </script>
+@endif
+<form action="logout" method="POST">
+            @csrf
+            <button class="btn btn-outline-success" type="submit">Logout</button>
+        </form>
+======================================
